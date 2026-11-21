@@ -49,7 +49,20 @@ async function verifyDesktop() {
     assert.match(help[3][3], /apenas as despesas ainda pendentes/);
 
     stage = 'importar o backup';
-    const fixture = { ...emptyWallet(), opening: 12550 };
+    const invoice = (id, month, amount, due) => ({
+      id, description: id, date: month + '-03', invoice: month, amount,
+      card: 'card1', method: 'Cartão de crédito', category: 'cat0',
+      type: 'expense', status: 'pending', invoiceDueDate: due,
+    });
+    const fixture = {
+      ...emptyWallet(), opening: 12550,
+      cards: [{ id: 'card1', name: 'Cartão de teste', closing: 10, due: 20 }],
+      transactions: [
+        invoice('Fatura anterior', '2026-10', 5000, '2026-10-20'),
+        invoice('Fatura do mês', '2026-11', 30000, '2026-12-05'),
+        invoice('Fatura futura', '2026-12', 90000, '2026-12-20'),
+      ],
+    };
     await renderer(`(async () => {
       const input = document.querySelector('#import-file');
       const transfer = new DataTransfer();
@@ -88,6 +101,26 @@ async function verifyDesktop() {
     await reloaded;
     assert.match(await renderer("document.querySelector('.stats .amount').textContent"), /125,50/);
     assert.deepEqual(JSON.parse(await readFile(join(temporary, 'carteira.json'), 'utf8')), fixture);
+    stage = 'verificar a fatura no painel e pagar pelo cartão';
+    const selectNovember = `
+      const picker = document.querySelector('#month');
+      picker.value = '2026-11';
+      picker.dispatchEvent(new Event('change'));
+    `;
+    const readTotals = () => renderer(
+      "Array.from(document.querySelectorAll('.stats .amount'), element => element.textContent.replace(/\\s/g, ' ')).slice(2)"
+    );
+    await renderer(selectNovember);
+    assert.deepEqual(await readTotals(), ['R$ 300,00', 'R$ 350,00']);
+    await renderer(`(() => {
+      document.querySelector('nav [data-page="cards"]').click();
+      document.querySelector('[data-settle="card1"]').click();
+      document.querySelector('#confirm-date').value = '2026-11-20';
+      document.querySelector('#confirm-form').requestSubmit();
+      document.querySelector('nav [data-page="overview"]').click();
+    })()`);
+    assert.deepEqual(await readTotals(), ['R$ 300,00', 'R$ 50,00']);
+    console.log('Fatura do mês: R$ 300,00. A pagar: de R$ 350,00 para R$ 50,00 após pagar a fatura.');
     console.log('Electron: dicas, importação, exportação e restauração automática verificadas.');
   } catch (error) {
     exitCode = 1;

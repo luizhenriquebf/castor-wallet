@@ -46,6 +46,23 @@ test('regressão: editar e excluir lançamento antigo recalcula os meses seguint
   s=removeTransaction(s,'gasto');
   assert.equal(monthlyCashflow(s,'2026-11').carried,100000);
 });
+test('regressão: fatura de dezembro entra no cartão de pendências mesmo se vencer em janeiro',()=>{
+  const credit={method:'Cartão de crédito',card:'card1',invoice:'2026-12',invoiceDueDate:'2027-01-05'};
+  const wallet={...fresh(),transactions:[
+    tx('iPhone','2026-11-15',35000,'expense','pending',credit),
+    tx('Mochila 1/2','2026-11-14',9945,'expense','pending',credit),
+    tx('Plano de saúde','2026-12-10',49000,'expense','pending'),
+    tx('Faculdade','2026-12-05',15000,'expense','pending'),
+    tx('Contabilidade','2026-12-05',8900,'expense','pending'),
+  ]};
+  assert.equal(monthlyCashflow(wallet,'2026-11').pendingExpensesByMonth,0);
+  const december=monthlyCashflow(wallet,'2026-12');
+  assert.equal(december.pendingExpensesByMonth,117845);
+  assert.equal(december.pendingExpenses,72900);
+  assert.equal(monthlyCashflow(wallet,'2027-01').pendingExpenses,117845);
+  const settled=settleInvoice(wallet,'card1','2026-12','2027-01-05');
+  assert.equal(monthlyCashflow(settled,'2026-12').pendingExpensesByMonth,72900);
+});
 test('fluxo mensal concilia com saldo acumulado e respeita virada de ano e fevereiro',()=>{
   const s={...fresh(),opening:15000,transactions:[tx('dec','2026-12-31',10000),tx('jan','2027-01-01',50000,'income'),tx('fev','2027-02-28',12345),tx('mar','2027-03-01',1000)]};
   for(const month of ['2026-12','2027-01','2027-02','2027-03']){
