@@ -7,12 +7,26 @@ const original=localStorage.getItem(KEY),frame=document.querySelector('iframe');
 let doc,win,checks=0,failures=0;
 const tick=()=>new Promise(resolve=>win.requestAnimationFrame(()=>win.requestAnimationFrame(resolve)));
 function check(ok,label){checks++;if(!ok)failures++;const li=document.createElement('li');li.className=ok?'pass':'fail';li.textContent=(ok?'PASSOU: ':'FALHOU: ')+label;document.querySelector('#results').append(li);}
-const stored=()=>JSON.parse(localStorage.getItem(KEY));
+
+function observeExport(win,doc){
+  const NativeBlob=win.Blob;win.Blob=class extends NativeBlob{constructor(parts,options){super(parts,options);if(options?.type==='application/json')win.__backup=parts.join('');}};
+  win.HTMLAnchorElement.prototype.click=function(){};
+  return ()=>{doc.querySelector('#backup').click();return JSON.parse(win.__backup);};
+}
+async function importFixture(win,doc,state){
+  const transfer=new win.DataTransfer();transfer.items.add(new win.File([JSON.stringify(state)],'fixture.json',{type:'application/json'}));
+  const input=doc.querySelector('#import-file');input.files=transfer.files;input.dispatchEvent(new win.Event('change',{bubbles:true}));
+  for(let i=0;i<100&&!doc.querySelector('#confirm-dialog').open;i++)await new Promise(resolve=>setTimeout(resolve,10));
+  if(!doc.querySelector('#confirm-dialog').open)throw Error('Importação não abriu confirmação');
+  doc.querySelector('#confirm-form').requestSubmit();
+  await new Promise(resolve=>win.requestAnimationFrame(()=>win.requestAnimationFrame(resolve)));
+}
+let stored;
 async function click(selector){const button=doc.querySelector(selector);if(!button)throw Error('Controle ausente: '+selector);button.click();await tick();}
 try{
   const seed=saveTransaction({...demo('2026-11'),transactions:[]},{id:'existing',description:'Compra anterior',date:'2026-11-15',amount:10000,category:'cat7',type:'expense',status:'pending',method:'Cartão de crédito',card:'card1',invoice:'2026-11'});
   localStorage.setItem(KEY,JSON.stringify(seed));
-  await new Promise(resolve=>{frame.onload=resolve;frame.src='/index.html#recurring';});win=frame.contentWindow;doc=frame.contentDocument;await tick();
+  await new Promise(resolve=>{frame.onload=resolve;frame.src='/index.html#recurring';});win=frame.contentWindow;doc=frame.contentDocument;await tick();stored=observeExport(win,doc);check(stored().transactions.length===0&&stored().opening===0&&stored().cards.length===0,'regressão: carregar ignora carteira persistida e começa zerado');await importFixture(win,doc,seed);
   await click('[data-new-rule="health"]');
   let f=doc.querySelector('#recurring-form');
   check(f.elements.description.value==='Plano de saúde'&&f.elements.category.value==='cat5','regressão: atalho de plano de saúde preenche descrição e categoria');
@@ -21,8 +35,8 @@ try{
   let rows=stored().transactions.filter(t=>t.recurringId);
   check(rows.length===1&&rows[0].date==='2026-11-30'&&rows[0].amount===29990&&rows[0].status==='pending','regressão: salvar recorrência inclui despesa automaticamente, sem botão de geração');
   const healthId=stored().recurringRules[0].id;
-  const legacy=stored();legacy.transactions=legacy.transactions.filter(t=>!t.recurringId);legacy.recurringLedger=[];localStorage.setItem(KEY,JSON.stringify(legacy));
-  await new Promise(resolve=>{frame.onload=resolve;frame.src='/index.html?reopen#recurring';});win=frame.contentWindow;doc=frame.contentDocument;await tick();
+  const legacy=stored();legacy.transactions=legacy.transactions.filter(t=>!t.recurringId);legacy.recurringLedger=[];
+  await new Promise(resolve=>{frame.onload=resolve;frame.src='/index.html?reopen#recurring';});win=frame.contentWindow;doc=frame.contentDocument;await tick();stored=observeExport(win,doc);check(stored().transactions.length===0&&stored().cards.length===0&&stored().opening===0,'regressão: recarregar após importação e edição descarta a sessão');await importFixture(win,doc,legacy);
   check(stored().transactions.filter(t=>t.recurringId).length===1,'regressão: abrir carteira com cadastro antigo inclui cobrança ainda não gerada');
   await click('nav [data-page="overview"]');
   check(doc.querySelector('.stats .stat:nth-child(3) .amount').textContent.includes('399,90'),'regressão: total do painel inclui compra de 100 reais e recorrência de 299,90');

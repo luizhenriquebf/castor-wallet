@@ -1,34 +1,40 @@
 # Castor Wallet
 
-Aplicação de gestão financeira pessoal em português, com receitas, despesas, compras parceladas, faturas de cartão e despesas recorrentes. Funciona no computador e no celular e armazena os dados no navegador.
+Aplicativo de gestão financeira pessoal em português, com receitas, despesas, compras parceladas, faturas de cartão e despesas recorrentes. A versão para Windows funciona offline e salva a carteira automaticamente neste computador.
 
-## Executar localmente
+## Instalar no Windows
 
-Requisito: **Node.js 22 ou superior**, com npm. O projeto usa módulos nativos do Node.js e não precisa instalar dependências.
+1. Abra **Castor-Wallet-Setup.exe** no Windows de 64 bits.
+2. Abra **Castor Wallet** pelo atalho na área de trabalho ou no menu Iniciar.
+3. Se tiver um backup anterior, importe o JSON pelo botão no topo da janela. As próximas aberturas recuperam os dados salvos neste computador.
 
-1. Baixe ou clone o projeto.
-2. Abra o terminal na pasta que contém `package.json`.
-3. Execute:
+## Desenvolver e gerar o instalador
+
+No Windows, use **Node.js 22.12 ou superior**. Abra o PowerShell na pasta do projeto e execute:
 
 ```sh
-npm start
+npm.cmd ci
+npm.cmd start
 ```
 
-4. Acesse [http://127.0.0.1:4173](http://127.0.0.1:4173).
+Para gerar `release/Castor-Wallet-Setup.exe`, execute `npm.cmd run build:win`. O instalador inclui o Electron, então quem instala o aplicativo só precisa do arquivo `.exe`.
 
-Mantenha o terminal aberto enquanto utiliza a aplicação. Use `Ctrl+C` para encerrar o servidor. Se a porta 4173 estiver ocupada, encerre a outra instância antes de executar novamente.
+Para testar a versão web, execute `npm.cmd run start:web` e acesse [http://127.0.0.1:4173](http://127.0.0.1:4173). As duas versões usam os arquivos de `dist/` e aceitam o mesmo formato de backup.
 
-O servidor local serve os arquivos de `dist/`. Essa pasta contém o código da aplicação e deve permanecer no Git; não há uma etapa de compilação.
+## Publicar atualizações para Windows
+
+Desde a versão 1.2.0, o aplicativo instalado consulta o [GitHub Releases](https://github.com/luizhenriquebf/castor-wallet/releases) ao abrir. Quando uma atualização termina de baixar, escolha **Atualizar e reiniciar**. A carteira local permanece na mesma pasta.
+
+Para distribuir uma nova versão, aumente a versão em `package.json` e `package-lock.json`, execute os testes e gere o instalador com `npm.cmd run build:win`. Crie uma publicação para a versão (por exemplo, `v1.3.0`) e anexe `Castor-Wallet-Setup.exe`, `Castor-Wallet-Setup.exe.blockmap` e `latest.yml` gerados juntos. Publique somente depois de anexar os três arquivos.
 
 ## Começar sua carteira
 
-O primeiro acesso inclui exemplos fictícios de seis meses para demonstrar os gráficos.
+No Windows, a primeira abertura começa com saldo zero e categorias padrão. Importe seu JSON existente uma vez, se tiver um. O aplicativo salva as alterações em `carteira.json` na pasta de dados do usuário do Windows (`%APPDATA%\castor-wallet`). Na versão web, cada carregamento começa com uma carteira vazia.
 
-1. Abra **Guia rápido**, pelo botão `?` no topo.
-2. Para remover os exemplos, clique em **Apagar todas as transações**.
-3. Confira o resumo, digite **APAGAR** e confirme. Isso remove as transações de todos os meses e zera o saldo inicial, preservando os cadastros.
-4. No guia, ajuste o **saldo inicial da carteira** para o valor anterior ao primeiro lançamento que você pretende registrar.
-5. Cadastre seus cartões e comece a adicionar receitas e despesas.
+1. Clique em **Importar backup JSON** no topo e selecione seu arquivo.
+2. Confira a confirmação e importe os dados.
+3. Se preferir começar do zero, cadastre seus cartões e adicione receitas e despesas. O saldo inicial pode ser ajustado no **Guia rápido**.
+4. Use **Exportar backup** para guardar uma cópia ou transferir a carteira. Na versão web, exporte antes de atualizar ou fechar.
 
 O saldo inicial é da carteira inteira; não é preciso preenchê-lo a cada mês. Sobras e déficits são transportados automaticamente entre os meses.
 
@@ -98,13 +104,13 @@ O painel inclui evolução do saldo em seis meses, gastos por categoria e compar
 
 ## Dados e backups
 
-Os dados ficam no `localStorage` do navegador, sob a chave `castor-wallet-v1`. O aplicativo não envia transações para um banco de dados no servidor, não sincroniza dispositivos, não conecta contas bancárias e não executa pagamentos.
+No Windows, as alterações são salvas automaticamente. Na versão web, os dados ficam somente na memória da página. O aplicativo não envia transações para um banco de dados no servidor, não sincroniza dispositivos, não conecta contas bancárias e não executa pagamentos.
 
 - **Exportar backup JSON** e **Importar backup JSON** ficam no topo, com acesso também no guia.
 - A importação valida o arquivo e pede confirmação antes de substituir a carteira atual. O limite é 5 MB.
 - Backups incluem transações, categorias, cartões, emprego, recorrências e seu histórico.
-- Limpar os dados do navegador pode apagar a carteira. Exporte backups regularmente.
-- Outro navegador, dispositivo ou endereço possui armazenamento separado. As versões local e hospedada não compartilham dados automaticamente.
+- No Windows, reabrir a carteira recupera os dados locais. Na versão web, atualizar ou fechar descarta a sessão.
+- Na versão web, cada aba inicia vazia e independente. Importe o JSON na aba que deseja usar.
 
 A limpeza por **APAGAR** remove as transações e zera o saldo inicial. Categorias, cartões, emprego e recorrências cadastradas permanecem. As cobranças apagadas não são recriadas; meses posteriores seguem as recorrências ativas.
 
@@ -115,10 +121,12 @@ Os backups contêm informações financeiras pessoais. O `.gitignore` exclui exp
 Execute os testes de lógica:
 
 ```sh
-npm test
+npm.cmd test
 ```
 
 A suíte cobre cálculos em centavos, CRUD, saldo entre meses, faturas, parcelas, recorrências, pagamentos, backups e limpeza protegida. Os testes de regressão dos bugs corrigidos permanecem no projeto.
+
+Execute `npm.cmd run test:desktop` para verificar no Electron o início zerado, a importação e a exportação de um JSON fictício e a restauração ao recarregar.
 
 Para executar as verificações de interface e responsividade:
 
@@ -151,6 +159,8 @@ dist/
   reset.js          Limpeza com confirmação por digitação
   assets/           Logo e demais recursos visuais
 tests/              Testes de lógica e páginas de regressão
+desktop/            Janela Electron, ícone e salvamento local
+electron-builder.yml Configuração do instalador Windows
 server.mjs          Servidor para execução local
 .openai/hosting.json Configuração da hospedagem Sites
 ```

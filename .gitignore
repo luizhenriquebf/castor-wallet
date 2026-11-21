@@ -1,5 +1,6 @@
 # Dependencies and package-manager caches
 node_modules/
+/release/
 .npm/
 .pnpm-store/
 .yarn/cache/

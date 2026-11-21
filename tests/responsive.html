@@ -3,6 +3,20 @@
 <h1>Regressão da navegação responsiva</h1><p id="status">Executando…</p><iframe title="Aplicação sob teste"></iframe><ol id="results"></ol>
 <script type="module">
 import {KEY,demo} from '/model.js';
+
+function observeExport(win,doc){
+  const NativeBlob=win.Blob;win.Blob=class extends NativeBlob{constructor(parts,options){super(parts,options);if(options?.type==='application/json')win.__backup=parts.join('');}};
+  win.HTMLAnchorElement.prototype.click=function(){};
+  return ()=>{doc.querySelector('#backup').click();return JSON.parse(win.__backup);};
+}
+async function importFixture(win,doc,state){
+  const transfer=new win.DataTransfer();transfer.items.add(new win.File([JSON.stringify(state)],'fixture.json',{type:'application/json'}));
+  const input=doc.querySelector('#import-file');input.files=transfer.files;input.dispatchEvent(new win.Event('change',{bubbles:true}));
+  for(let i=0;i<100&&!doc.querySelector('#confirm-dialog').open;i++)await new Promise(resolve=>setTimeout(resolve,10));
+  if(!doc.querySelector('#confirm-dialog').open)throw Error('Importação não abriu confirmação');
+  doc.querySelector('#confirm-form').requestSubmit();
+  await new Promise(resolve=>win.requestAnimationFrame(()=>win.requestAnimationFrame(resolve)));
+}
 const original=localStorage.getItem(KEY);const seed=demo('2026-11');seed.recurringRules=[{id:'mobile-health',description:'Plano de saúde familiar',amount:29990,day:31,category:'cat5',method:'PIX',start:'2026-11',end:'',active:true}];localStorage.setItem(KEY,JSON.stringify(seed));
 const frame=document.querySelector('iframe'),results=document.querySelector('#results');
 let failures=0,checks=0;
@@ -11,7 +25,7 @@ for(const [width,height] of [[320,740],[390,844],[600,800],[601,800],[768,600],[
   for(const page of ['overview','guide','cards','recurring','transactions']){
     frame.style.width=width+'px';frame.style.height=height+'px';
     await new Promise(resolve=>{frame.onload=resolve;frame.src='/index.html?case='+width+'-'+page+'#'+page;});
-    const win=frame.contentWindow,doc=frame.contentDocument;
+    const win=frame.contentWindow,doc=frame.contentDocument;await importFixture(win,doc,seed);
     await new Promise(resolve=>win.requestAnimationFrame(()=>win.requestAnimationFrame(resolve)));
     const sidebar=doc.querySelector('.sidebar'),rect=sidebar.getBoundingClientRect(),main=doc.querySelector('main');
     const label=width+'×'+height+' · '+page;
