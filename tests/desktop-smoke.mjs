@@ -10,6 +10,11 @@ import '../desktop/main.mjs';
 const testPrefix = join(tmpdir(), 'castor-wallet-test-');
 const temporary = mkdtempSync(testPrefix);
 app.setPath('userData', temporary);
+app.on('web-contents-created', (_event, contents) => {
+  contents.on('console-message', event => {
+    if (event.level === 'error') console.error(event.message);
+  });
+});
 
 async function verifyDesktop() {
   const backup = join(temporary, 'backup.json');
@@ -120,6 +125,39 @@ async function verifyDesktop() {
       document.querySelector('nav [data-page="overview"]').click();
     })()`);
     assert.deepEqual(await readTotals(), ['R$ 300,00', 'R$ 50,00']);
+    stage = 'lançar receita e pagar recorrência pelo menu';
+    const paidIncome = await renderer(`(() => {
+      document.querySelector('#new-transaction').click();
+      const form = document.querySelector('#transaction-form');
+      form.elements.type.value = 'income';
+      form.querySelector('[name=type]:checked').dispatchEvent(new Event('change', { bubbles: true }));
+      const statusHidden = document.querySelector('#transaction-status-field').hidden;
+      form.elements.description.value = 'Receita de teste';
+      form.elements.amount.value = '70.00';
+      form.elements.date.value = '2026-11-05';
+      form.requestSubmit();
+      return statusHidden && !document.querySelector('#transaction-dialog').open;
+    })()`);
+    assert.equal(paidIncome, true);
+    let savedWallet = JSON.parse(await readFile(join(temporary, 'carteira.json'), 'utf8'));
+    assert.equal(savedWallet.transactions.find(tx => tx.description === 'Receita de teste').status, 'paid');
+    const paidRecurring = await renderer(`(() => {
+      const tab = document.querySelector('nav [data-page="recurring"]');
+      tab.click();
+      document.querySelector('[data-new-rule="health"]').click();
+      const form = document.querySelector('#recurring-form');
+      form.elements.amount.value = '90.00';
+      form.elements.start.value = '2026-11';
+      form.requestSubmit();
+      document.querySelector('[data-recurring-paid]').click();
+      document.querySelector('#confirm-date').value = '2026-11-15';
+      document.querySelector('#confirm-form').requestSubmit();
+      return tab.classList.contains('active') &&
+        document.querySelector('[data-recurring-paid]').textContent === 'Desfazer pagamento';
+    })()`);
+    assert.equal(paidRecurring, true);
+    savedWallet = JSON.parse(await readFile(join(temporary, 'carteira.json'), 'utf8'));
+    assert.equal(savedWallet.transactions.find(tx => tx.recurringId).paidDate, '2026-11-15');
     console.log('Fatura do mês: R$ 300,00. A pagar: de R$ 350,00 para R$ 50,00 após pagar a fatura.');
     console.log('Electron: dicas, importação, exportação e restauração automática verificadas.');
   } catch (error) {

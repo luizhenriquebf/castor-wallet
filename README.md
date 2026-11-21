@@ -42,7 +42,7 @@ O saldo inicial é da carteira inteira; não é preciso preenchê-lo a cada mês
 
 ### Receitas, despesas e categorias
 
-Em **Nova transação**, preencha descrição, valor, data, categoria, meio de pagamento e status. Marque **Pago** quando o valor tiver sido recebido ou pago.
+Em **Nova transação**, preencha descrição, valor, data, categoria, meio de pagamento e status. Receitas entram como pagas na data informada. Para despesas, escolha **Pago** ou **Pendente**.
 
 Em **Transações**, busque pela descrição, filtre por categoria, tipo ou status, edite e exclua lançamentos. O seletor de mês controla o período exibido nas telas financeiras.
 
@@ -73,7 +73,7 @@ Se a compra for cadastrada como paga, somente a primeira parcela fica quitada. A
 
 ### Despesas recorrentes
 
-Abra **Transações → Despesas recorrentes**, também disponível em **Nova transação**. Há atalhos para plano de saúde, telefone e internet, e você pode cadastrar outras contas mensais.
+Abra **Seu espaço → Recorrências**, também disponível em **Nova transação**. Há atalhos para plano de saúde, telefone e internet, e você pode cadastrar outras contas mensais.
 
 Informe valor, dia da cobrança, categoria, meio de pagamento, mês inicial e fim opcional. Ao abrir a carteira, salvar um cadastro ou selecionar um mês, as cobranças ativas até o mês selecionado são incluídas automaticamente como pendentes, inclusive meses anteriores ainda não registrados desde o início da recorrência.
 
@@ -82,8 +82,8 @@ Informe valor, dia da cobrança, categoria, meio de pagamento, mês inicial e fi
 - Dias inexistentes, como 31 em fevereiro, são ajustados para o último dia do mês.
 - No cartão, o fechamento determina a fatura em que a cobrança será contabilizada.
 - Assinale **Pago** e confirme a data efetiva para registrar um pagamento.
-- Use **Marcar todas do mês como pagas** para quitar as recorrências pendentes daquela competência.
-- Desmarque **Pago** e confirme para corrigir um pagamento. Use **Editar cobrança** para ajustar um lançamento específico.
+- Use **Pagar todas do mês** para quitar as recorrências pendentes daquela competência.
+- Use **Desfazer pagamento** e confirme para corrigir um pagamento. Use **Editar cobrança** para ajustar um lançamento específico.
 - Editar ou pausar o cadastro mantém as cobranças já criadas. Ao reativar, a inclusão recomeça no mês selecionado, sem cobrar os meses pausados.
 
 A aplicação atualiza as recorrências enquanto é utilizada; não existe um serviço executando em segundo plano com o site fechado.
@@ -93,7 +93,7 @@ A aplicação atualiza as recorrências enquanto é utilizada; não existe um se
 | Indicador | Critério |
 | --- | --- |
 | **Despesas do mês** | Despesas pagas e pendentes da competência selecionada. Cartão usa o mês da fatura; os outros meios usam a data do lançamento. |
-| **A pagar até este mês** | Despesas pendentes com vencimento até o final do mês, incluindo atrasados. Cartão usa o vencimento registrado na fatura. |
+| **A pagar até este mês** | Despesas pendentes do mês selecionado e de meses anteriores. Cartão entra pelo mês da fatura. |
 | **Saldo anterior** | Saldo inicial mais recebimentos e pagamentos realizados até o fim do mês passado. Pode ser positivo ou negativo. |
 | **Saldo realizado** | Saldo anterior mais entradas realizadas menos saídas realizadas. Para cartão e recorrências com pagamento registrado, considera a data efetiva. |
 | **Saldo previsto após pendências** | Saldo realizado mais receitas pendentes menos despesas pendentes até o fim do mês. |

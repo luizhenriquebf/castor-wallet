@@ -1,6 +1,6 @@
 {
   "name": "castor-wallet",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "Gestão financeira pessoal offline",
   "author": "Castor Wallet",
   "private": true,

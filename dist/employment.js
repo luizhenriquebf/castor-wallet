@@ -20,5 +20,5 @@ export function salaryDraft(state,month){
   const job=state.employment;
   const [year,m]=month.split('-').map(Number);
   const day=Math.min(job.payday,new Date(Date.UTC(year,m,0)).getUTCDate());
-  return validateTransaction({id:crypto.randomUUID(),type:'income',description:job.employer?`Salário · ${job.employer}`:'Salário mensal',amount:job.amount,date:`${month}-${String(day).padStart(2,'0')}`,category:job.category,method:job.method,status:'pending'},state);
+  return validateTransaction({id:crypto.randomUUID(),type:'income',description:job.employer?`Salário · ${job.employer}`:'Salário mensal',amount:job.amount,date:`${month}-${String(day).padStart(2,'0')}`,category:job.category,method:job.method,status:'paid'},state);
 }

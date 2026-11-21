@@ -16,13 +16,13 @@ test('cadastrar e editar salário preserva o histórico de receitas',()=>{
   assert.equal(state.transactions[0].amount,543210);
   assert.equal(salaryDraft(state,'2026-12').amount,600000);
 });
-test('rascunho não cria lançamento e começa pendente',()=>{
+test('rascunho não cria lançamento e começa pago',()=>{
   const state=saveEmployment(fresh(),job),draft=salaryDraft(state,'2026-11');
-  assert.equal(state.transactions.length,0);assert.equal(draft.status,'pending');
-  const pending=saveTransaction(state,draft);
-  assert.equal(metrics(pending,'2026-11').income,543210);
-  assert.equal(balance(pending,'2026-11-30'),0);
-  assert.equal(balance(saveTransaction(pending,{...draft,status:'paid'}),'2026-11-30'),543210);
+  assert.equal(state.transactions.length,0);assert.equal(draft.status,'paid');
+  const saved=saveTransaction(state,{...draft,status:'pending'});
+  assert.equal(saved.transactions[0].status,'paid');
+  assert.equal(metrics(saved,'2026-11').income,543210);
+  assert.equal(balance(saved,'2026-11-30'),543210);
 });
 test('recebimento usa o mês escolhido e limita o dia em fevereiro e ano bissexto',()=>{
   const state=saveEmployment(fresh(),job);
