@@ -1,0 +1,69 @@
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Testes de recorrências e cartões</title>
+<style>body{font:15px system-ui;padding:20px;color:#204f40;background:#f6f7f4}iframe{width:100%;height:520px;border:1px solid #ccc}li{margin:8px 0}.fail{color:#a54636}</style>
+<h1>Testes de recorrências e cartões</h1><p id="status">Executando…</p><ol id="results"></ol><iframe title="Aplicação em teste"></iframe>
+<script type="module">
+import {KEY,demo,saveTransaction} from '/model.js';
+const original=localStorage.getItem(KEY),frame=document.querySelector('iframe');
+let doc,win,checks=0,failures=0;
+const tick=()=>new Promise(resolve=>win.requestAnimationFrame(()=>win.requestAnimationFrame(resolve)));
+function check(ok,label){checks++;if(!ok)failures++;const li=document.createElement('li');li.className=ok?'pass':'fail';li.textContent=(ok?'PASSOU: ':'FALHOU: ')+label;document.querySelector('#results').append(li);}
+const stored=()=>JSON.parse(localStorage.getItem(KEY));
+async function click(selector){const button=doc.querySelector(selector);if(!button)throw Error('Controle ausente: '+selector);button.click();await tick();}
+try{
+  const seed=saveTransaction({...demo('2026-11'),transactions:[]},{id:'existing',description:'Compra anterior',date:'2026-11-15',amount:10000,category:'cat7',type:'expense',status:'pending',method:'Cartão de crédito',card:'card1',invoice:'2026-11'});
+  localStorage.setItem(KEY,JSON.stringify(seed));
+  await new Promise(resolve=>{frame.onload=resolve;frame.src='/index.html#recurring';});win=frame.contentWindow;doc=frame.contentDocument;await tick();
+  await click('[data-new-rule="health"]');
+  let f=doc.querySelector('#recurring-form');
+  check(f.elements.description.value==='Plano de saúde'&&f.elements.category.value==='cat5','regressão: atalho de plano de saúde preenche descrição e categoria');
+  f.elements.amount.value='299.90';f.elements.day.value='31';f.elements.start.value='2026-11';f.requestSubmit();await tick();
+  check(stored().recurringRules.length===1,'cadastro salva uma recorrência mensal');
+  let rows=stored().transactions.filter(t=>t.recurringId);
+  check(rows.length===1&&rows[0].date==='2026-11-30'&&rows[0].amount===29990&&rows[0].status==='pending','regressão: salvar recorrência inclui despesa automaticamente, sem botão de geração');
+  const healthId=stored().recurringRules[0].id;
+  const legacy=stored();legacy.transactions=legacy.transactions.filter(t=>!t.recurringId);legacy.recurringLedger=[];localStorage.setItem(KEY,JSON.stringify(legacy));
+  await new Promise(resolve=>{frame.onload=resolve;frame.src='/index.html?reopen#recurring';});win=frame.contentWindow;doc=frame.contentDocument;await tick();
+  check(stored().transactions.filter(t=>t.recurringId).length===1,'regressão: abrir carteira com cadastro antigo inclui cobrança ainda não gerada');
+  await click('nav [data-page="overview"]');
+  check(doc.querySelector('.stats .stat:nth-child(3) .amount').textContent.includes('399,90'),'regressão: total do painel inclui compra de 100 reais e recorrência de 299,90');
+  await click('nav [data-page="transactions"]');await click('button[data-page="recurring"]');
+  check(stored().transactions.filter(t=>t.recurringId).length===1,'navegar novamente não duplica recorrência');
+  await click('[data-recurring-paid]');
+  check(doc.querySelector('#confirm-dialog').open&&!doc.querySelector('[data-recurring-paid]').checked,'marcar Pago solicita a data e preserva status até confirmar');
+  doc.querySelector('#confirm-date').value='2026-11-25';doc.querySelector('#confirm-form').requestSubmit();await tick();
+  check(stored().transactions.find(t=>t.recurringId).status==='paid'&&doc.querySelector('[data-recurring-paid]').checked,'confirmação registra pagamento e assinala a cobrança');
+  await click('nav [data-page="overview"]');
+  check(doc.querySelector('.stats .stat:nth-child(3) .amount').textContent.includes('399,90')&&doc.querySelector('.stats .stat:first-child .amount').textContent.includes('1.800,10'),'regressão: pagar atualiza saldo sem somar outra despesa ao painel');
+  win.location.hash='recurring';await tick();
+  await click('[data-recurring-paid]');await click('#confirm-dialog [data-close]');
+  check(doc.querySelector('[data-recurring-paid]').checked,'cancelar alteração mantém o pagamento assinalado');
+  await click('[data-recurring-paid]');doc.querySelector('#confirm-form').requestSubmit();await tick();
+  check(stored().transactions.find(t=>t.recurringId).status==='pending'&&!doc.querySelector('[data-recurring-paid]').checked,'desmarcar e confirmar devolve cobrança às pendências');
+  await click('#pay-recurring-month');doc.querySelector('#confirm-date').value='2026-11-25';doc.querySelector('#confirm-form').requestSubmit();await tick();
+  check(stored().transactions.find(t=>t.recurringId).status==='paid','opção do mês marca cobranças como pagas');
+  await click('[data-edit-rule]');f=doc.querySelector('#recurring-form');f.elements.amount.value='350';f.requestSubmit();await tick();
+  check(stored().transactions.find(t=>t.recurringId).amount===29990,'editar cadastro não altera valor já lançado');
+  await click('#next-month');
+  rows=stored().transactions.filter(t=>t.recurringId);check(rows.length===2&&rows[1].amount===35000&&rows[1].status==='pending','regressão: mês seguinte inclui novo valor automaticamente e inicia pendente');
+  await click('[data-toggle-rule]');await click('#next-month');
+  check(stored().transactions.filter(t=>t.recurringId===healthId).length===2,'pausar bloqueia inclusão automática em meses seguintes');
+  await click('#next-month');await click('[data-toggle-rule]');
+  check(stored().transactions.filter(t=>t.recurringId===healthId).length===3&&!stored().transactions.some(t=>t.recurringId===healthId&&t.recurringMonth==='2027-01'),'regressão: retomar em fevereiro não cobra janeiro pausado');
+  for(const [preset,name] of [['phone','Plano de telefone'],['internet','Internet']]){
+    await click('[data-new-rule="'+preset+'"]');check(doc.querySelector('#recurring-form').elements.description.value===name,'atalho '+name+' preenche o formulário');await click('#recurring-dialog [data-close]');
+  }
+  await click('nav [data-page="cards"]');await click('[data-edit-card="card1"]');
+  f=doc.querySelector('#card-form');f.elements.name.value='Cartão atualizado';f.elements.closing.value='10';f.elements.due.value='20';f.elements.color.value='#e7ae61';f.requestSubmit();await tick();
+  const state=stored();
+  check(state.cards.length===1&&state.cards[0].id==='card1'&&state.cards[0].name==='Cartão atualizado'&&state.cards[0].color==='#e7ae61','editar cartão mantém identificador e salva nome e cor');
+  check(state.cards[0].closing===10&&state.cards[0].due===20&&state.transactions.find(t=>t.id==='existing').invoiceDueDate==='2026-12-05','edição de datas preserva vencimento de compra anterior');
+  check(doc.querySelector('.bank-card').style.background==='rgb(231, 174, 97)','cor escolhida aparece na interface');
+  await click('#add-card');f=doc.querySelector('#card-form');
+  check(f.elements.id.value==='','novo cartão não reutiliza id do cartão editado');
+  f.elements.name.value='Segundo cartão';f.requestSubmit();await tick();
+  check(stored().cards.length===2,'adicionar após editar cria novo cartão sem substituir anterior');
+}catch(error){check(false,error.message);}
+finally{if(original===null)localStorage.removeItem(KEY);else localStorage.setItem(KEY,original);}
+document.querySelector('#status').textContent=failures?`${failures} falha(s) em ${checks} verificações`:`Todas as ${checks} verificações passaram`;
+document.body.dataset.result=failures?'failed':'passed';
+</script></html>

@@ -1,0 +1,36 @@
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Regressão da navegação responsiva</title>
+<style>body{font:15px system-ui;padding:20px;background:#f6f7f4;color:#204f40}iframe{display:block;border:1px solid #aaa;margin-top:20px}li{margin:8px 0}.fail{color:#a54636}</style>
+<h1>Regressão da navegação responsiva</h1><p id="status">Executando…</p><iframe title="Aplicação sob teste"></iframe><ol id="results"></ol>
+<script type="module">
+import {KEY,demo} from '/model.js';
+const original=localStorage.getItem(KEY);const seed=demo('2026-11');seed.recurringRules=[{id:'mobile-health',description:'Plano de saúde familiar',amount:29990,day:31,category:'cat5',method:'PIX',start:'2026-11',end:'',active:true}];localStorage.setItem(KEY,JSON.stringify(seed));
+const frame=document.querySelector('iframe'),results=document.querySelector('#results');
+let failures=0,checks=0;
+function check(ok,message){checks++;if(!ok)failures++;const li=document.createElement('li');li.className=ok?'pass':'fail';li.textContent=(ok?'PASSOU: ':'FALHOU: ')+message;results.append(li);}
+for(const [width,height] of [[320,740],[390,844],[600,800],[601,800],[768,600],[850,800],[1024,800],[1280,800]]){
+  for(const page of ['overview','guide','cards','recurring','transactions']){
+    frame.style.width=width+'px';frame.style.height=height+'px';
+    await new Promise(resolve=>{frame.onload=resolve;frame.src='/index.html?case='+width+'-'+page+'#'+page;});
+    const win=frame.contentWindow,doc=frame.contentDocument;
+    await new Promise(resolve=>win.requestAnimationFrame(()=>win.requestAnimationFrame(resolve)));
+    const sidebar=doc.querySelector('.sidebar'),rect=sidebar.getBoundingClientRect(),main=doc.querySelector('main');
+    const label=width+'×'+height+' · '+page;
+    if(width<=850){
+      check(doc.documentElement.scrollWidth<=doc.documentElement.clientWidth,label+' — sem rolagem horizontal '+[...doc.querySelectorAll('main *')].filter(el=>el.getBoundingClientRect().right>doc.documentElement.clientWidth+1).slice(0,8).map(el=>el.tagName+'.'+el.className+':'+Math.round(el.getBoundingClientRect().right)).join(';'));
+
+      check(Math.abs(rect.left)<1&&Math.abs(rect.width-doc.documentElement.clientWidth)<2&&Math.abs(rect.bottom-height)<2&&rect.height<=105,label+' — menu inferior ocupa a largura da tela ['+[rect.left,rect.width,doc.documentElement.clientWidth,rect.bottom,height,rect.height].join(',')+']');
+      check(win.getComputedStyle(main).marginLeft==='0px',label+' — conteúdo sem recuo lateral');
+      check(['.brand','.nav-label','.sidebar-bottom'].every(s=>win.getComputedStyle(sidebar.querySelector(s)).display==='none'),label+' — blocos da barra lateral não vazam');
+      check([...sidebar.querySelectorAll('nav button')].every(b=>{const r=b.getBoundingClientRect();return r.width>=44&&r.height>=44&&r.left>=-1&&r.right<=width+1&&parseFloat(win.getComputedStyle(b).fontSize)>=10;}),label+' — cinco destinos legíveis e com área de toque');
+      check(parseFloat(win.getComputedStyle(main).paddingBottom)>=rect.height,label+' — espaço reservado para não cobrir o conteúdo');
+      if(page==='recurring'){const checkbox=doc.querySelector('.recurring-payment');check(checkbox&&checkbox.getBoundingClientRect().height>=44&&checkbox.getBoundingClientRect().right<=doc.documentElement.clientWidth,label+' — pagamento recorrente acessível no celular');}
+    }else{
+      check(rect.left===0&&rect.top===0&&rect.width>=200&&parseFloat(win.getComputedStyle(main).marginLeft)===rect.width,label+' — barra lateral de desktop preservada');
+    }
+  }
+}
+document.querySelector('#status').textContent=failures?`${failures} falha(s) em ${checks} verificações`:`Todas as ${checks} verificações passaram`;
+document.body.dataset.result=failures?'failed':'passed';
+if(original===null)localStorage.removeItem(KEY);else localStorage.setItem(KEY,original);
+frame.style.width='390px';frame.style.height='560px';frame.src='/index.html#cards';
+</script></html>
